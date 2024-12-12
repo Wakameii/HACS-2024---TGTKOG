@@ -1,0 +1,46 @@
+from ._anvil_designer import repeating_choose_profileTemplate
+from anvil import *
+import anvil.server
+import anvil.facebook.auth
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+
+
+class repeating_choose_profile(repeating_choose_profileTemplate):
+  def __init__(self, **properties):
+    self.init_components(**properties)
+    self.recip_name.text = self.item.get('name', 'No Name')
+    self.recip_pfp.source = self.item.get('image', 'default_image_url')
+
+
+  def load_recipient_profiles(self):
+    profiles = app_tables.recipients.search()
+    profile_list = [
+        {
+            "name": profile['name'],
+            "image": profile['profile_picture'] or "default_image_url",
+        }
+        for profile in profiles
+        #if profile['name'] and isinstance(profile['name'], str) 
+    ]
+    print(f"Debug: Loaded recipient profiles: {profile_list}")
+    return profile_list
+
+  def select_button_click(self, **event_args):
+    recipient_name = self.item.get('name', None)
+    print(f"Debug: select_button_click recipient_name={recipient_name}")
+
+    if not recipient_name:
+      Notification("Recipient name is missing or invalid.").show()
+      return
+        
+    # Raise event with instance and recipient_name
+    self.parent.raise_event('x-recipient-selected', recipient_name=recipient_name, instance=self)
+   
+
+  def recip_name_show(self, **event_args):
+    pass
