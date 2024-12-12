@@ -1,0 +1,58 @@
+from ._anvil_designer import MainTemplate
+from anvil import *
+import anvil.server
+import anvil.facebook.auth
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+import json
+import random
+import time
+
+
+class Main(MainTemplate):
+  def __init__(self, **properties):
+    # Set Form properties and Data Bindings.
+    self.init_components(**properties)
+    # Any code you write here will run before the form opens.
+
+  def button_1_click(self, **event_args):
+    if self.text_box_1.text and self.text_box_2.text and self.text_box_3.text:
+      interests = [self.text_box_1.text,self.text_box_2.text,self.text_box_3.text]
+    elif self.text_box_1.text and self.text_box_2.text:
+      interests = [self.text_box_1.text,self.text_box_2.text]
+    else:
+      interests = [self.text_box_1.text]
+    age = self.drop_down_5.selected_value
+    relationship = self.drop_down_7.selected_value
+    price_filter = self.drop_down_1.selected_value
+    rating_filter = self.drop_down_2.selected_value
+    prime_filter = self.drop_down_3.selected_value
+    all_products = []
+    for interest in interests:
+      result1 = anvil.server.call('product_search', interest, age, relationship, price_filter, rating_filter, prime_filter)
+      for product in result1:
+        if product not in all_products:
+          all_products.append(product)
+      result3 = anvil.server.call('etsy_search', interest, age, relationship, price_filter)
+      for product2 in result3:
+        if product2 not in all_products:
+          all_products.append(product2)
+    random.shuffle(all_products)
+    random.shuffle(all_products)
+    top_products = all_products[:25]
+    self.repeating_panel_2.items = top_products
+
+  def gotocreate_button_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    open_form('Create_profile')
+    pass
+
+  def gotofav_button_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    open_form('Favorites')
+    pass
+
