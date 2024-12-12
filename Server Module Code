@@ -1,0 +1,163 @@
+import anvil.email
+import anvil.facebook.auth
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+import anvil.users
+import anvil.google.auth, anvil.google.drive, anvil.google.mail
+from anvil.google.drive import app_files
+import anvil.server
+import requests
+import json
+
+@anvil.server.callable
+def product_search(interest, age, relationship, price_filter, rating_filter, prime_filter):
+  url = "https://real-time-amazon-data.p.rapidapi.com/search"
+  headers = {
+	"x-rapidapi-key": "d486ae3b9fmsh811ebaa11fa587ap17a5fdjsn77b011f2fa1c",
+	"x-rapidapi-host": "real-time-amazon-data.p.rapidapi.com"
+  }
+  query = f"{interest} gift for {relationship} {age} year old"
+  if (prime_filter == "Yes"):
+    if (rating_filter == "4-5 stars"):
+      if (price_filter == "$0-$20"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"true","max_price":"20"}
+      elif (price_filter == "$21-$50"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"true","max_price":"50"}
+      elif (price_filter == "$51-$100"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"true","max_price":"100"}
+      elif (price_filter == "$101-$250"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"true","max_price":"250"}
+      else:
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"true","min_price":"250"}
+    else:
+      if (price_filter == "$0-$20"):
+        querystring = {"query":query,"country":"US","is_prime":"true","max_price":"20"}
+      elif (price_filter == "$21-$50"):
+        querystring = {"query":query,"country":"US","is_prime":"true","max_price":"50"}
+      elif (price_filter == "$51-$100"):
+        querystring = {"query":query,"country":"US","is_prime":"true","max_price":"100"}
+      elif (price_filter == "$101-$250"):
+        querystring = {"query":query,"country":"US","is_prime":"true","max_price":"250"}
+      else:
+        querystring = {"query":query,"country":"US","is_prime":"true","min_price":"250"}
+  else:
+    if (rating_filter == "4-5 stars"):
+      if (price_filter == "$0-$20"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"false","max_price":"20"}
+      elif (price_filter == "$21-$50"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"false","max_price":"50"}
+      elif (price_filter == "$51-$100"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"false","max_price":"100"}
+      elif (price_filter == "$101-$250"):
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"false","max_price":"250"}
+      else:
+        querystring = {"query":query,"country":"US","star_rating":"5_STARS","is_prime":"false","min_price":"250"}
+    else:
+      if (price_filter == "$0-$20"):
+        querystring = {"query":query,"country":"US","is_prime":"false","max_price":"20"}
+      elif (price_filter == "$21-$50"):
+        querystring = {"query":query,"country":"US","is_prime":"false","max_price":"50"}
+      elif (price_filter == "$51-$100"):
+        querystring = {"query":query,"country":"US","is_prime":"false","max_price":"100"}
+      elif (price_filter == "$101-$250"):
+        querystring = {"query":query,"country":"US","is_prime":"false","max_price":"250"}
+      else:
+        querystring = {"query":query,"country":"US","is_prime":"false","min_price":"250"}
+    response = requests.get(url, headers=headers, params=querystring, timeout=10)
+    api_response = response.json()
+    products = api_response.get('data', {}).get('products', [])[:25]
+    return products
+
+@anvil.server.callable
+def etsy_search(interest, age, relationship, price_filter):
+  url = "https://etsy-api2.p.rapidapi.com/product/search"
+  headers = {
+	"x-rapidapi-key": "d486ae3b9fmsh811ebaa11fa587ap17a5fdjsn77b011f2fa1c",
+	"x-rapidapi-host": "etsy-api2.p.rapidapi.com"
+  }
+  query = f"{interest} gift for {relationship} {age} year old"
+  querystring = {"query":query}
+  
+  response = requests.get(url, headers=headers, params=querystring)
+  api_response = response.json()
+  products = api_response.get('response', [])[:25]
+  filtered_products = []
+  if price_filter == "$0-$20":
+    max = 20
+  elif price_filter == "$21-$50":
+    max = 50
+  elif price_filter == "$51-$100":
+    max = 100
+  elif price_filter == "$101-$250":
+    max = 250
+  else:
+    max = 1000
+  for product in products:
+    price = product.get('price', {}).get('salePrice')
+    if price and max >= int(float(price)):
+      if len(filtered_products) > 15:
+        break
+      else: 
+        filtered_products.append(product)
+  return filtered_products
+
+@anvil.server.callable
+def assign_favorite_to_recipient(gift_details, recipient_name):
+    try:
+        # Fetch the recipient record
+        recipient = app_tables.recipients.get(name=recipient_name)
+        if not recipient:
+            raise ValueError(f"Recipient not found: {recipient_name}")
+        
+        # Save the gift details to the recipient
+        recipient_gifts = recipient['favorites'] or []
+        recipient_gifts.append(gift_details)
+        recipient['favorites'] = recipient_gifts
+        return True
+    except Exception as e:
+        print(f"Error in assign_favorite_to_recipient: {e}")
+        return False
+
+@anvil.server.callable
+def save_gift_unassigned(gift_details):
+    try:
+        app_tables.unassigned_gifts.add_row(
+            gift_name=gift_details.get("name", "Unnamed Gift"),
+            gift_price=gift_details.get("price", "Unknown Price"),
+            gift_image=gift_details.get("image", "default_image_url"),
+            gift_link=gift_details.get("link", "No Link")
+        )
+        print("Debug: Gift saved to unassigned_gifts:", gift_details)
+        return True
+    except Exception as e:
+        print(f"Error saving unassigned gift: {e}")
+        return False
+  
+@anvil.server.callable
+def check_recipients_table():
+    missing_name_recipients = []
+    for recipient in app_tables.recipients.search():
+        if not recipient['name']:
+            print(f"Missing name for recipient ID: {recipient.get_id()}")
+            missing_name_recipients.append(recipient)
+
+    if missing_name_recipients:
+        print(f"Found {len(missing_name_recipients)} recipients with missing names.")
+    else:
+        print("All recipients have valid names.")
+
+@anvil.server.callable
+def fix_missing_recipient_names():
+    for recipient in app_tables.recipients.search():
+        if not recipient['name']:
+            recipient['name'] = "Default Name"  # Assign a default or meaningful placeholder
+            print(f"Updated recipient ID {recipient.get_id()} with default name.")
+
+@anvil.server.callable
+def validate_recipient_data():
+   invalid_entries = [
+        row for row in app_tables.recipients.search()
+        if not isinstance(row['name'], str) or not row['name'].strip()
+    ] 
+   return invalid_entries
