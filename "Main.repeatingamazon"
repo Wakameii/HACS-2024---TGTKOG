@@ -1,0 +1,56 @@
+from ._anvil_designer import repeatingamazonTemplate
+from anvil import *
+import anvil.server
+import anvil.facebook.auth
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+from anvil import Link
+
+
+class repeatingamazon(repeatingamazonTemplate):
+  def __init__(self, **properties):
+    # Set Form properties and Data Bindings.
+    # this code is included in a form inside of Main
+    self.init_components(**properties)
+    if self.item.get('product_title'):
+      self.test_title.text = self.item.get('product_title', 'No Title')
+      self.test_price.text = self.item.get('product_price', 'No Price')
+      self.test_link.text = "Click here to view your product"
+      self.test_link.url = self.item.get('product_url', 'No URL')
+      self.image_1.source = self.item.get('product_photo', 'No Image')
+    else:
+      self.test_title.text = self.item.get('title', 'No Title')
+      self.test_price.text = self.item.get('price', {}).get('salePrice', 'No Price')
+      self.test_link.text = "Click here to view your product"
+      self.test_link.url = self.item.get('productUrl', 'No URL')
+      self.image_1.source = self.item.get('imageUrl', 'No Image')
+
+    # Any code you write here will run before the form opens.
+
+  def button_1_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    self.button_1.foreground = "burnt umber"
+    
+    # Collect gift details
+    gift_details = {
+        "name": self.item.get('product_title', self.item.get('title', 'Unnamed Gift')),
+        "price": self.item.get('product_price', self.item.get('price', {}).get('gift_price', 'No Price')),
+        "link": self.item.get('product_url', self.item.get('productUrl', '#')),
+        "image": self.item.get('product_photo', self.item.get('imageUrl', 'default_image_url')),
+    }
+    
+    # Import and instantiate the popup
+    from ...Choose_prof_Popup import Choose_prof_Popup
+    popup = Choose_prof_Popup(gift_details=gift_details)
+    selected_recipient = alert(popup, large=True, buttons=[])
+    
+    if selected_recipient:
+        # If a recipient was selected, assign the gift
+        anvil.server.call('assign_favorite_to_recipient', gift_details, selected_recipient)
+    else:
+      Notification("No recipient selected.").show()
+
