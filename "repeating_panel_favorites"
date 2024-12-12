@@ -1,0 +1,48 @@
+from ._anvil_designer import repeating_panel_favoritesTemplate
+from anvil import *
+import anvil.server
+import anvil.facebook.auth
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+
+
+class repeating_panel_favorites(repeating_panel_favoritesTemplate):
+  def __init__(self, **properties):
+    # Set Form properties and Data Bindings.
+    self.init_components(**properties)
+    self.fav_title.text = self.item.get('gift_name', 'No Title')
+    self.fav_price.text = self.item.get('gift_price', 'No Price')
+    self.fav_link.text = "Click here to view your product"
+    self.fav_link.url = self.item.get('gift_link', 'No URL')
+    self.fav_image.source = self.item.get('gift_image', 'default_image_url')
+
+  def refresh_unassigned_gifts(self):
+    gifts = app_tables.unassigned_gifts.search()
+    print(f"Debug: Gifts fetched from database: {list(gifts)}")
+    
+    # Assigning the raw query results directly to the items property
+    self.repeating_panel_favorites.items = gifts
+    
+  def refresh_favorites(self):
+      self.refresh_unassigned_gifts()
+
+    # Any code you write here will run before the form opens.
+
+  def remove_button_click(self, **event_args):
+    gift_id = self.item.get('id')  # Get the gift ID from the item
+    
+    if gift_id:
+        gift_row = app_tables.unassigned_gifts.get_by_id(gift_id)  # Fetch the row by ID
+        
+        if gift_row:
+            gift_row.delete()  # Delete the row
+            self.parent.refresh_list()  # Call refresh on the parent form
+            print(f"Debug: Gift {gift_id} removed from database.")
+        else:
+            print(f"Debug: Gift with ID {gift_id} not found in database.")
+    else:
+        print("Debug: No gift_id provided to remove button.")
