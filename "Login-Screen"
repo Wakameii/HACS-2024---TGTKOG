@@ -1,0 +1,51 @@
+from ._anvil_designer import Login_ScreenTemplate
+from anvil import *
+import anvil.facebook.auth
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.server
+import anvil.google.auth
+from anvil import alert
+from anvil import Notification
+
+
+
+class Login_Screen(Login_ScreenTemplate):
+  def __init__(self, **properties):
+    # Set Form properties and Data Bindings.
+    self.init_components(**properties)
+
+
+  def button_google_click(self, **event_args):
+    email_addr = anvil.google.auth.login()
+    #this is for the app console so we know the email is correct 
+    print(f"User logged in as {email_addr}")
+    email_addr = anvil.google.auth.get_user_email()
+    if email_addr: 
+      existing_user = app_tables.users.get(email=email_addr)
+      if not existing_user: 
+        app_tables.users.add_row(email=email_addr)
+      else: 
+        existing_user['email'] = "Updated Name"
+        open_form('Create_profile')
+        return email_addr
+    else: 
+      alert("Google login failed or was canceled.", title="Login Error", large=True)
+    open_form('Create_profile')
+    pass
+
+  def button_email_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    anvil.users.login_with_form()
+    open_form('Create_profile')
+    pass
+
+  def guest_button_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    open_form('Create_profile')
+    pass
+
