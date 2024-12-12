@@ -1,0 +1,45 @@
+from ._anvil_designer import FavoritesTemplate
+from anvil import *
+import anvil.server
+import anvil.facebook.auth
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+
+
+class Favorites(FavoritesTemplate):
+  def __init__(self, **properties):
+    # Set Form properties and Data Bindings.
+    self.init_components(**properties)
+    self.refresh_list()
+    # Any code you write here will run before the form opens.
+
+  def refresh_list(self):
+      #Fetch unassigned gifts and populate the repeating panel.
+      gifts = app_tables.unassigned_gifts.search()
+      print(f"Debug: Gifts fetched from database: {list(gifts)}")
+        
+      # Pass data to the repeating panel's items property
+      self.favorites_list.items = [
+          {
+              "gift_name": gift["gift_name"],
+              "gift_price": gift["gift_price"],
+              "gift_link": gift["gift_link"],
+              "gift_image": gift["gift_image"],
+          }
+          for gift in gifts
+      ]
+      print(f"Debug: Data assigned to favorites_list: {self.favorites_list.items}")
+
+  def search_button_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    open_form('Main')
+    pass
+
+  def create_new_button_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    open_form('Create_profile')
+    pass
