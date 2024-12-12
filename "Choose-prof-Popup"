@@ -1,0 +1,72 @@
+from ._anvil_designer import Choose_prof_PopupTemplate
+from anvil import *
+import anvil.server
+import anvil.facebook.auth
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+
+
+class Choose_prof_Popup(Choose_prof_PopupTemplate):
+    # Set Form properties and Data Bindings.
+  def __init__(self, gift_details, **properties):
+    self.init_components(**properties)
+    self.gift_details = gift_details
+    print(f"Debug: Popup initialized with gift details: {self.gift_details}")
+    self.repeating_panel_profiles.items = self.load_recipient_profiles()
+    print(f"Debug: Items assigned to repeating panel: {self.repeating_panel_profiles.items}")
+      
+  def load_recipient_profiles(self):
+    profiles = app_tables.recipients.search()
+    profile_list = [
+        {
+            "name": profile["name"] if profile["name"] else "Unnamed Profile",
+            "image": profile["profile_picture"] if profile["profile_picture"] else "default_image_url"
+        }
+        for profile in profiles
+    ]
+    print(f"Debug: Recipient profiles loaded: {profile_list}")
+    return profile_list
+    
+  def repeating_choose_profile(self, **event_args):
+    selected_recipient = self.item  
+    self.parent.recipient_selected(selected_recipient) 
+    
+  def recipient_selected(self, recipient_name, instance, **event_args):
+    print(f"Debug: recipient_selected called with recipient_name={recipient_name}, instance={instance}")
+    
+    if not recipient_name or not isinstance(recipient_name, str):
+        Notification("No recipient selected. Please choose a valid profile.", title="Error").show()
+        return
+
+    try:
+        # Assign the gift to the selected recipient
+        result = anvil.server.call('assign_favorite_to_recipient', self.gift_details, recipient_name)
+        if result:
+            Notification(f"Gift assigned to {recipient_name}.", title="Success").show()
+        else:
+            Notification("Failed to assign gift. Please try again.", title="Error").show()
+
+        # Refresh the favorites page if necessary
+        if hasattr(get_open_form(), "refresh_favorites"):
+            get_open_form().refresh_favorites()
+
+        # Close the popup
+        self.raise_event('x-close-alert', value=True)
+    except Exception as e:
+        Notification(f"An error occurred: {str(e)}", title="Error").show()
+
+
+  def later_button_click(self, **event_args):
+    try:
+        result = anvil.server.call('save_gift_unassigned', self.gift_details)
+        if result:
+          Notification("Gift saved for later.", title="Success").show()
+          open_form('Favorites')
+        else:
+            Notification("Failed to save gift. Please try again.", title="Error").show()
+    except Exception as e:
+        Notification(f"An error occurred: {str(e)}", title="Error").show()
