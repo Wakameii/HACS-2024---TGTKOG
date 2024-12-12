@@ -1,0 +1,57 @@
+from ._anvil_designer import Create_profileTemplate
+from anvil import *
+import anvil.facebook.auth
+import anvil.tables as tables
+import anvil.tables.query as q
+from anvil.tables import app_tables
+import anvil.users
+import anvil.google.auth, anvil.google.drive
+from anvil.google.drive import app_files
+import anvil.server
+
+
+class Create_profile(Create_profileTemplate):
+  def __init__(self, **properties):
+    # Set Form properties and Data Bindings.
+    self.init_components(**properties)
+
+    self.profile_picture_file = None
+
+    # Any code you write here will run before the form opens.
+
+  def button_continueToMain_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    user = anvil.users.get_user() or anvil.google.auth.get_user_email()
+    app_tables.recipients.add_row(
+      name = self.textbox_name.text,
+      gender = self.dropdown_gender.selected_value, 
+      age = self.dropdown_age.selected_value,
+      relationship = self.dropdown_relationship.selected_value,
+      profile_picture = self.profile_picture_file,
+      created_by = user
+    )
+    open_form('Main')
+    pass
+
+  def button_1_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    """have message pop up and continue to next page"""
+    n =Notification("By skipping profile creation, you will not be able to add gifts to your 'Favorites' folder. (Don't worry, you can always go back and create a new profile later!)", timeout=10)
+    n.show()
+    open_form('Main')
+    pass
+
+  def profile_picture_change(self, file, **event_args):
+    """This method is called when a new file is loaded into this FileLoader"""
+    self.image_1.source = file
+    self.profile_picture.visible = False
+    """eventually make it so that the first image can be replaced"""
+    pass
+
+  def image_1_show(self, **event_args):
+    """This method is called when the Image is shown on the screen"""
+    self.image_1.width = 200
+    self.image_1.height = 200
+    self.image_1.horizontal_align = 'center'
+    pass
+
